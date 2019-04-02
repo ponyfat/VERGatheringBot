@@ -59,9 +59,10 @@ class MongoClientWrapper(object):
 		incremented_field = action + '_cnt'
 		if self._entries_collection.find_one({'username': username}):
 			self._entries_collection.update_one({'username': username}, {'$inc': {incremented_field: 1}})
-		else:
-			self._entries_collection.insert_one({'username': username, 'audio_cnt': 0, 'vote_cnt': 0})
-
+		elif action == 'vote':
+			self._entries_collection.insert_one({'username': username, 'audio_cnt': 0, 'vote_cnt': 1})
+		elif action == 'audio':
+			self._entries_collection.insert_one({'username': username, 'audio_cnt': 1, 'vote_cnt': 0})
 
 
 	def choose_id_for_validation(self):
