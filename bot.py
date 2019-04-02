@@ -8,18 +8,20 @@ from telepot.namedtuple import ReplyKeyboardMarkup, KeyboardButton
 from format_functions import format_leaderboard
 from custom_threads import custom_thread
 from directories_manager import create_directory
+import sys
 
 SetProxy = telepot.api.set_proxy("http://109.101.139.126:49081")
-TOKEN = '809107388:AAHoSNRNDziBc1Ffs-cw-D0g8aetlh8DMpk'	
-MONGO = 'mongodb://localhost:27017/'
+TOKEN = '**token-here**'	
+MONGO = '**mongo-address-here**'
 
 
 class GatherValidateChatHandler(telepot.helper.ChatHandler):
 	EMOTIONS_KEYBOARD = ReplyKeyboardMarkup(
-								keyboard=[[KeyboardButton(text=emotion) for emotion in BUTTONS_TO_EMOTIONS.keys()]]
+								keyboard=[[KeyboardButton(text=emotion) for emotion in list(BUTTONS_TO_EMOTIONS.keys())[:-1]],
+								[KeyboardButton(text=list(BUTTONS_TO_EMOTIONS.keys())[-1])]]
 		)
 
-	ALLOWED_COMMANDS = ['/start'] + list(BUTTONS_TO_EMOTIONS.keys()) + MAIN_MENU_BUTTONS
+	ALLOWED_COMMANDS = ['/start', '/help'] + list(BUTTONS_TO_EMOTIONS.keys()) + MAIN_MENU_BUTTONS
 
 	def __init__(self, seed_tuple, mongo, **kwargs):
 		self._mongo = mongo
@@ -28,6 +30,7 @@ class GatherValidateChatHandler(telepot.helper.ChatHandler):
 		super(GatherValidateChatHandler, self).__init__(seed_tuple, **kwargs)
 
 	def on_chat_message(self, msg):
+		print('msg!')
 		content_type, chat_type, chat_id = telepot.glance(msg)
 		if content_type == 'voice':
 			self._handle_audio_message(msg)
@@ -52,8 +55,16 @@ class GatherValidateChatHandler(telepot.helper.ChatHandler):
 			self._handle_vote(msg)
 		elif msg['text'] == '/start':
 			self._handle_start(msg)
-		elif msg['text'] in MAIN_MENU_BUTTONS[1:]:
+		elif msg['text'] == '/help':
+			self._handle_help(msg)
+		elif msg['text'] in MAIN_MENU_BUTTONS[1:-1]:
 			self._handle_leaderboard(msg)
+		elif msg['text'] == MAIN_MENU_BUTTONS[-1]:
+			self._handle_help(msg)
+
+
+	def _handle_help(self, msg):
+		self.sender.sendMessage(HELP_MESSAGE, reply_markup=MAIN_MENU, parse_mode='Markdown')
 
 	def _handle_leaderboard(self, msg):
 		if msg['text'] == MAIN_MENU_BUTTONS[1]:
@@ -61,7 +72,7 @@ class GatherValidateChatHandler(telepot.helper.ChatHandler):
 		else:
 			action = 'audio'
 		leaders, user_info = self._mongo.get_users_entries_leaderboard(msg['from']['username'], action)
-		self.sender.sendMessage(format_leaderboard(action, leaders, user_info), reply_markup=MAIN_MENU)
+		self.sender.sendMessage(format_leaderboard(action, leaders, user_info), reply_markup=MAIN_MENU, parse_mode='Markdown')
 
 	def _handle_validation(self, msg):
 		self._id_for_classification = self._mongo.choose_id_for_validation()
@@ -120,4 +131,4 @@ MessageLoop(bot).run_as_thread()
 print ('BotHosting: I am listening ...')
 
 while 1:
-    time.sleep(10)
+    time.sleep(4)
