@@ -11,8 +11,8 @@ from directories_manager import create_directory
 import sys
 
 SetProxy = telepot.api.set_proxy("http://109.101.139.126:49081")
-TOKEN = '812476155:AAHA1aiwyb6Vy7_RZCSzTfr3vxmSt212RcI'	
-MONGO = 'mongodb://localhost:27017/'
+TOKEN = '**TOKEN_HERE**'	
+MONGO = 'mongodb://localhost:27017/' #default mongo addr
 
 
 class GatherValidateChatHandler(telepot.helper.ChatHandler):
