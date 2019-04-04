@@ -17,7 +17,7 @@ def format_leaderboard(action, leaders, user_info):
 def wordlist_to_markdown(arglist):
 	new_arglist = []
 	for arg in arglist:
-		new_arglist.append(arg_to_markdown(arg))
+		new_arglist.append(word_to_markdown(arg))
 	return new_arglist
 
 def word_to_markdown(arg):
