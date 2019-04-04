@@ -8,11 +8,20 @@ def format_leaderboard(action, leaders, user_info):
 	for i in range(len(arglist), 7):
 		arglist.append('...')
 	arglist = arglist + [str(user_info[field]), str(user_info['place'])]
+	arglist = wordlist_to_markdown(arglist[1:])
 	if arglist[0] == 'audio':
-		return audio_leaders(arglist[1:])
+		return audio_leaders(arglist)
 	else:
-		return vote_leasers(arglist[1:])
+		return vote_leasers(arglist)
 
+def wordlist_to_markdown(arglist):
+	new_arglist = []
+	for arg in arglist:
+		new_arglist.append(arg_to_markdown(arg))
+	return new_arglist
+
+def word_to_markdown(arg):
+	return arg.replace("_", "\_")
 
 def audio_leaders(arglist):
 	return """*Больше всеx сообщений отправили:*
