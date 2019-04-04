@@ -103,3 +103,10 @@ class MongoClientWrapper(object):
 	def get_all_users(self):
 		return self._entries_collection.distinct('username')
 
+	def get_total_stats(self):
+		total_stats = {}
+		total_stats['audio'] = self._voice_samples_collection.count()
+		total_stats['users'] = self._entries_collection.count()
+		total_stats['validated audio'] = self._voice_samples_collection.find({'vote_total' : 5}).count()
+		return total_stats
+

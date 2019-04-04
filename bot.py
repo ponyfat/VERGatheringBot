@@ -2,7 +2,7 @@ from mongo_client_wrapper import MongoClientWrapper
 import telepot
 from telepot.loop import MessageLoop
 import time
-from telepot.delegate import (per_chat_id, per_chat_id_in, create_open, pave_event_space, call)
+from telepot.delegate import (per_chat_id_except, per_chat_id_in, create_open, pave_event_space, call)
 from constants_and_messages import *
 from telepot.namedtuple import ReplyKeyboardMarkup, KeyboardButton
 from format_functions import format_leaderboard
@@ -11,7 +11,7 @@ from directories_manager import create_directory
 import sys
 
 SetProxy = telepot.api.set_proxy("http://109.101.139.126:49081")
-TOKEN = '**TOKEN*HERE'	
+TOKEN = '809107388:AAHoSNRNDziBc1Ffs-cw-D0g8aetlh8DMpk'	
 MONGO = 'mongodb://localhost:27017/' #default mongo addr
 OWNER_ID = 130042164
 
@@ -109,11 +109,25 @@ class OwnerHandler(GatherValidateChatHandler):
 				original_function(self, msg)
 		return new_function
 
+	def add_get_total_stats_command(original_function):
+		def new_function(self, msg):
+			content_type, chat_type, chat_id = telepot.glance(msg)
+			if content_type == 'text' and msg['text'] == '/get_total_stats':
+				self.get_total_stats(msg['text'])
+			else:
+				original_function(self, msg)
+		return new_function
+
 	def get_users(self, text):
 		usernames = self._mongo.get_all_users()
 		self.sender.sendMessage('\n'.join(usernames) + '\nTotal: ' + str(len(usernames)))
 
+	def get_total_stats(self, text):
+		total_stats = self._mongo.get_total_stats()
+		self.sender.sendMessage('\n'.join(['Total ' + key + ': ' + str(stat) for key, stat in total_stats.items()]))
+
 	@add_get_users_command
+	@add_get_total_stats_command
 	def on_chat_message(self, msg):
 		super(OwnerHandler, self).on_chat_message(msg)
 
@@ -128,12 +142,12 @@ class GatherValidateBot(telepot.DelegatorBot):
 		self._mongo = MongoClientWrapper(MONGO)
 		super(GatherValidateBot, self).__init__(token, [
             # Handler for the chat actions
+            pave_event_space()(per_chat_id_except([owner_id]), create_open, GatherValidateChatHandler, self._mongo,
+            	timeout=1000000),
+
             pave_event_space()(
                 per_chat_id_in([owner_id]), create_open, OwnerHandler, self._mongo, timeout=1000000),
             
-            pave_event_space()(per_chat_id([owner_id]), create_open, GatherValidateChatHandler, self._mongo, exclude=[owner_id],
-            	timeout=1000000),
-
             # download voice file
             (self._is_voice, custom_thread(call(self._download_and_store)))
         ])
