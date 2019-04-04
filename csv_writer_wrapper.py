@@ -7,10 +7,8 @@ class CSVWriterWrapper():
 	def __init__(self, fieldnames):
 		create_directory(self.CSV_DIRECTORY)
 		self.fieldnames = fieldnames
-		self.filename = './' + self.CSV_DIRECTORY + '/' + 'dataset.csv'
-		create_file(self.filename)
-		with open(self.filename, 'a') as f:
-			f.write(','.join(self.fieldnames) + '\n')
+		self.filename = './' + self.CSV_DIRECTORY + '/' + 'more_labels_dataset.csv'
+		create_file(self.filename, fieldnames)			
 		
 
 	def write_line(self, row_dict):

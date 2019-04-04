@@ -11,14 +11,15 @@ from directories_manager import create_directory
 import sys
 
 SetProxy = telepot.api.set_proxy("http://109.101.139.126:49081")
-TOKEN = '**TOKEN_HERE**'	
+TOKEN = '**TOKEN-HERE**'	
 MONGO = 'mongodb://localhost:27017/' #default mongo addr
 
 
 class GatherValidateChatHandler(telepot.helper.ChatHandler):
 	EMOTIONS_KEYBOARD = ReplyKeyboardMarkup(
-								keyboard=[[KeyboardButton(text=emotion) for emotion in list(BUTTONS_TO_EMOTIONS.keys())[:-1]],
-								[KeyboardButton(text=list(BUTTONS_TO_EMOTIONS.keys())[-1])]]
+								keyboard=[[KeyboardButton(text=emotion) for emotion in list(BUTTONS_TO_EMOTIONS.keys())[:3]],
+								[KeyboardButton(text=emotion) for emotion in list(BUTTONS_TO_EMOTIONS.keys())[3:7]],
+								[KeyboardButton(text=emotion) for emotion in list(BUTTONS_TO_EMOTIONS.keys())[7:]]]
 		)
 
 	ALLOWED_COMMANDS = ['/start', '/help'] + list(BUTTONS_TO_EMOTIONS.keys()) + MAIN_MENU_BUTTONS
@@ -30,7 +31,7 @@ class GatherValidateChatHandler(telepot.helper.ChatHandler):
 		super(GatherValidateChatHandler, self).__init__(seed_tuple, **kwargs)
 
 	def on_chat_message(self, msg):
-		print('msg!', msg)
+		print('msg!')
 		content_type, chat_type, chat_id = telepot.glance(msg)
 		if content_type == 'voice':
 			self._handle_audio_message(msg)

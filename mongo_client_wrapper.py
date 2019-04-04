@@ -7,8 +7,9 @@ from csv_writer_wrapper import CSVWriterWrapper
 
 class MongoClientWrapper(object):
 	MAX_VOTES = 5
-	CSV_FIELDS = ['first_name', 'last_name', 'username', 'language_code', 'duration', 'file_id', 'vote_calm', 'vote_angry', 'vote_excited',
-	'vote_sad', 'vote_spam', 'vote_total']
+	CSV_FIELDS = ['first_name', 'last_name', 'username', 'language_code', 'duration', 'file_id',
+	'vote_calm', 'vote_angry', 'vote_excited', 'vote_surprised', 'vote_disgust', 'vote_fear',
+	'vote_sad', 'vote_spam', 'vote_idk', 'vote_total']
 
 	def __init__(self, mongo_uri):
 		print('MongoClientWrapper: mongo client wrapper initializing...')
@@ -33,10 +34,23 @@ class MongoClientWrapper(object):
 	def add_audio_sample(self, msg):
 		print('MongoClientWrapper: audio sample adding to db...')
 
-		self._voice_samples_collection.insert_one({'first_name': msg['from']['first_name'], 'last_name': msg['from'].get_key(['last_name']),
-			'username': msg['from']['username'], 'language_code': msg['from']['language_code'],
-			'duration': msg['voice']['duration'], 'file_id': msg['voice']['file_id'],
-			'vote_calm': 0, 'vote_angry': 0, 'vote_excited': 0, 'vote_sad': 0, 'vote_spam': 0, 'vote_total': 0})
+		self._voice_samples_collection.insert_one({
+			'first_name': msg['from'].get('first_name', 'None'),
+			'last_name': msg['from'].get('last_name', 'None'),
+			'username': msg['from'].get('username', 'None'),
+			'language_code': msg['from'].get('language_code', 'None'),
+			'duration': msg['voice'].get('duration', 'None'),
+			'file_id': msg['voice']['file_id'],
+			'vote_calm': 0,
+			'vote_angry': 0,
+			'vote_excited': 0,
+			'vote_surprised': 0,
+			'vote_disgust': 0,
+			'vote_fear': 0,
+			'vote_sad': 0,
+			'vote_spam': 0,
+			'vote_idk': 0,
+			'vote_total': 0})
 
 		self._entries_collection_cnt_increment(msg['from']['username'], 'audio')
 
@@ -46,9 +60,12 @@ class MongoClientWrapper(object):
 		print('MongoClientWrapper: adding vote...')
 
 		voted_emotion = 'vote_' + emotion
+		print(emotion)
 		self._voice_samples_collection.update_one({'file_id': file_id},
 			{'$inc': {'vote_total': 1, voted_emotion : 1}})
+		print(self._voice_samples_collection.find_one({'file_id': file_id})['vote_total'])
 		if self._voice_samples_collection.find_one({'file_id': file_id})['vote_total'] == 5:
+			print('before writin!')
 			row_dict = dict(self._voice_samples_collection.find_one({'file_id': file_id}))
 			row_dict.pop('_id')
 			self._csv_writer_wrapper.write_line(row_dict)
