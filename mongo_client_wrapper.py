@@ -33,7 +33,7 @@ class MongoClientWrapper(object):
 	def add_audio_sample(self, msg):
 		print('MongoClientWrapper: audio sample adding to db...')
 
-		self._voice_samples_collection.insert_one({'first_name': msg['from']['first_name'], 'last_name': msg['from']['last_name'],
+		self._voice_samples_collection.insert_one({'first_name': msg['from']['first_name'], 'last_name': msg['from'].get_key(['last_name']),
 			'username': msg['from']['username'], 'language_code': msg['from']['language_code'],
 			'duration': msg['voice']['duration'], 'file_id': msg['voice']['file_id'],
 			'vote_calm': 0, 'vote_angry': 0, 'vote_excited': 0, 'vote_sad': 0, 'vote_spam': 0, 'vote_total': 0})
