@@ -100,3 +100,6 @@ class MongoClientWrapper(object):
 		user_place = self._entries_collection.find({field : {'$gte': user_score}}).count()
 		return leaders, {field: user_score, 'place': user_place}
 
+	def get_all_users(self):
+		return self._entries_collection.distinct('username')
+

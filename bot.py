@@ -2,7 +2,7 @@ from mongo_client_wrapper import MongoClientWrapper
 import telepot
 from telepot.loop import MessageLoop
 import time
-from telepot.delegate import (per_chat_id, create_open, pave_event_space, call)
+from telepot.delegate import (per_chat_id, per_chat_id_in, create_open, pave_event_space, call)
 from constants_and_messages import *
 from telepot.namedtuple import ReplyKeyboardMarkup, KeyboardButton
 from format_functions import format_leaderboard
@@ -11,8 +11,9 @@ from directories_manager import create_directory
 import sys
 
 SetProxy = telepot.api.set_proxy("http://109.101.139.126:49081")
-TOKEN = '**TOKEN-HERE**'	
+TOKEN = '**TOKEN*HERE'	
 MONGO = 'mongodb://localhost:27017/' #default mongo addr
+OWNER_ID = 130042164
 
 
 class GatherValidateChatHandler(telepot.helper.ChatHandler):
@@ -31,7 +32,7 @@ class GatherValidateChatHandler(telepot.helper.ChatHandler):
 		super(GatherValidateChatHandler, self).__init__(seed_tuple, **kwargs)
 
 	def on_chat_message(self, msg):
-		print('msg!')
+		print('msg!', msg)
 		content_type, chat_type, chat_id = telepot.glance(msg)
 		if content_type == 'voice':
 			self._handle_audio_message(msg)
@@ -94,20 +95,44 @@ class GatherValidateChatHandler(telepot.helper.ChatHandler):
 		query_id, from_id, query_data = telepot.glance(msg, flavor='callback_query')
 		print(query_data)
 
-		
+class OwnerHandler(GatherValidateChatHandler):
+	def __init__(self, seed_tuple, mongo, **kwargs):
+		super(OwnerHandler, self).__init__(seed_tuple, mongo, **kwargs)
+		self._announce_mode = False
+
+	def add_get_users_command(original_function):
+		def new_function(self, msg):
+			content_type, chat_type, chat_id = telepot.glance(msg)
+			if content_type == 'text' and msg['text'] == '/get_users':
+				self.get_users(msg['text'])
+			else:
+				original_function(self, msg)
+		return new_function
+
+	def get_users(self, text):
+		usernames = self._mongo.get_all_users()
+		self.sender.sendMessage('\n'.join(usernames) + '\nTotal: ' + str(len(usernames)))
+
+	@add_get_users_command
+	def on_chat_message(self, msg):
+		super(OwnerHandler, self).on_chat_message(msg)
 
 
 class GatherValidateBot(telepot.DelegatorBot):
 	FILES_DIRECTORY = 'raw_audio'
 
-	def __init__(self, token):
+	def __init__(self, token, owner_id):
 		# create folder for audio storage
 		create_directory(self.FILES_DIRECTORY)
 
 		self._mongo = MongoClientWrapper(MONGO)
 		super(GatherValidateBot, self).__init__(token, [
             # Handler for the chat actions
-            pave_event_space()(per_chat_id(), create_open, GatherValidateChatHandler, self._mongo, timeout=1000000),
+            pave_event_space()(
+                per_chat_id_in([owner_id]), create_open, OwnerHandler, self._mongo, timeout=1000000),
+            
+            pave_event_space()(per_chat_id([owner_id]), create_open, GatherValidateChatHandler, self._mongo, exclude=[owner_id],
+            	timeout=1000000),
 
             # download voice file
             (self._is_voice, custom_thread(call(self._download_and_store)))
@@ -126,7 +151,7 @@ class GatherValidateBot(telepot.DelegatorBot):
 			seed_tuple[1]['voice']['file_id'] + '.ogg')
 
 
-bot = GatherValidateBot(TOKEN)
+bot = GatherValidateBot(TOKEN, OWNER_ID)
 
 MessageLoop(bot).run_as_thread()
 print ('BotHosting: I am listening ...')
