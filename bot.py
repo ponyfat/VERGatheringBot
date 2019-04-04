@@ -30,7 +30,7 @@ class GatherValidateChatHandler(telepot.helper.ChatHandler):
 		super(GatherValidateChatHandler, self).__init__(seed_tuple, **kwargs)
 
 	def on_chat_message(self, msg):
-		print('msg!')
+		print('msg!', msg)
 		content_type, chat_type, chat_id = telepot.glance(msg)
 		if content_type == 'voice':
 			self._handle_audio_message(msg)
