@@ -10,8 +10,7 @@ from custom_threads import custom_thread
 from directories_manager import create_directory
 import sys
 
-SetProxy = telepot.api.set_proxy("http://109.101.139.126:49081")
-TOKEN = '809107388:AAHoSNRNDziBc1Ffs-cw-D0g8aetlh8DMpk'	
+TOKEN = '812476155:AAHA1aiwyb6Vy7_RZCSzTfr3vxmSt212RcI'	
 MONGO = 'mongodb://localhost:27017/' #default mongo addr
 OWNER_ID = 130042164
 
