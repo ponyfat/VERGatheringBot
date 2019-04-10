@@ -9,7 +9,7 @@ def format_leaderboard(action, leaders, user_info):
 		arglist.append('...')
 	arglist = arglist + [str(user_info[field]), str(user_info['place'])]
 	arglist = wordlist_to_markdown(arglist[1:])
-	if arglist[0] == 'audio':
+	if action == 'audio':
 		return audio_leaders(arglist)
 	else:
 		return vote_leasers(arglist)
