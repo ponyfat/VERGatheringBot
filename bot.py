@@ -10,7 +10,7 @@ from custom_threads import custom_thread
 from directories_manager import create_directory
 import sys
 
-SetProxy = telepot.api.set_proxy("http://109.101.139.126:49081")
+SetProxy = telepot.api.set_proxy("http://181.129.160.50:39460")
 TOKEN = '809107388:AAHoSNRNDziBc1Ffs-cw-D0g8aetlh8DMpk'	
 MONGO = 'mongodb://localhost:27017/' #default mongo addr
 OWNER_ID = 130042164
@@ -69,11 +69,12 @@ class GatherValidateChatHandler(telepot.helper.ChatHandler):
 		self.sender.sendMessage(HELP_MESSAGE, reply_markup=MAIN_MENU, parse_mode='Markdown')
 
 	def _handle_leaderboard(self, msg):
+		print('leaderboard')
 		if msg['text'] == MAIN_MENU_BUTTONS[1]:
 			action = 'vote'
 		else:
 			action = 'audio'
-		leaders, user_info = self._mongo.get_users_entries_leaderboard(msg['from']['username'], action)
+		leaders, user_info = self._mongo.get_users_entries_leaderboard(action, msg)
 		self.sender.sendMessage(format_leaderboard(action, leaders, user_info), reply_markup=MAIN_MENU, parse_mode='Markdown')
 
 	def _handle_validation(self, msg):
@@ -85,11 +86,12 @@ class GatherValidateChatHandler(telepot.helper.ChatHandler):
 			self.sender.sendMessage(ALL_VALIDATED_MESSAGE, reply_markup=MAIN_MENU)
 
 	def _handle_vote(self, msg):
-		self._mongo.add_vote(self._id_for_classification, msg['from']['username'], BUTTONS_TO_EMOTIONS[msg['text']])
+		self._mongo.add_vote(self._id_for_classification, BUTTONS_TO_EMOTIONS[msg['text']], msg)
 		self.sender.sendMessage(VOTE_RECEIVED, reply_markup=MAIN_MENU)
 
 	def _handle_start(self, msg):
 		self.sender.sendMessage(WELCOME_MESSAGE.format(msg['from']['username']), reply_markup=MAIN_MENU)
+		self._mongo.add_user(msg)
 
 	def on_callback_query(self, msg):
 		query_id, from_id, query_data = telepot.glance(msg, flavor='callback_query')
@@ -100,7 +102,7 @@ class OwnerHandler(GatherValidateChatHandler):
 		super(OwnerHandler, self).__init__(seed_tuple, mongo, **kwargs)
 		self._announce_mode = False
 
-	def add_get_users_command(original_function):
+	def handle_get_users_command(original_function):
 		def new_function(self, msg):
 			content_type, chat_type, chat_id = telepot.glance(msg)
 			if content_type == 'text' and msg['text'] == '/get_users':
@@ -109,7 +111,7 @@ class OwnerHandler(GatherValidateChatHandler):
 				original_function(self, msg)
 		return new_function
 
-	def add_get_total_stats_command(original_function):
+	def handle_get_total_stats_command(original_function):
 		def new_function(self, msg):
 			content_type, chat_type, chat_id = telepot.glance(msg)
 			if content_type == 'text' and msg['text'] == '/get_total_stats':
@@ -125,9 +127,9 @@ class OwnerHandler(GatherValidateChatHandler):
 	def get_total_stats(self, text):
 		total_stats = self._mongo.get_total_stats()
 		self.sender.sendMessage('\n'.join(['Total ' + key + ': ' + str(stat) for key, stat in total_stats.items()]))
-
-	@add_get_users_command
-	@add_get_total_stats_command
+	
+	@handle_get_users_command
+	@handle_get_total_stats_command
 	def on_chat_message(self, msg):
 		super(OwnerHandler, self).on_chat_message(msg)
 
@@ -149,7 +151,10 @@ class GatherValidateBot(telepot.DelegatorBot):
                 per_chat_id_in([owner_id]), create_open, OwnerHandler, self._mongo, timeout=1000000),
             
             # download voice file
-            (self._is_voice, custom_thread(call(self._download_and_store)))
+            (self._is_voice, custom_thread(call(self._download_and_store))),
+
+            # announce to all users
+            (self._is_announce, custom_thread(call(self._announce)))
         ])
 
 	def _is_voice(self, msg):
@@ -159,6 +164,22 @@ class GatherValidateBot(telepot.DelegatorBot):
 			return None
 		else:
 			return [] #hashable!
+
+	def _is_announce(self, msg):
+		content_type, chat_type, chat_id = telepot.glance(msg)
+
+		if msg['from']['id'] == OWNER_ID and content_type == 'text' and msg['text'].split(' ', 1)[0] == '/announce':
+			return []
+		else:
+			return None
+
+	def _announce(self, seed_tuple):
+		msg = seed_tuple[1]
+		text = msg['text'].split(' ', 1)[1]
+		user_ids = self._mongo.get_all_user_ids()
+		print('user_ids', user_ids)
+		for user_id in user_ids:
+			self.sendMessage(user_id, text)
 
 	def _download_and_store(self, seed_tuple):
 		self.download_file(seed_tuple[1]['voice']['file_id'], './' + self.FILES_DIRECTORY + '/' +

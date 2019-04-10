@@ -30,6 +30,17 @@ class MongoClientWrapper(object):
 		for post in self._voice_samples_collection.find({ 'vote_total': { '$lt': self.MAX_VOTES } })['file_id']:
 			self._ids_for_validation.append(post['file_id'])
 
+	def add_user(self, msg):
+		user_id = msg['from']['id']
+		username = self._get_username_from_msg(msg)
+		full_name = self._get_fullname_from_msg(msg)
+
+		if not username:
+			username = full_name
+
+		if not self._entries_collection.find_one({'user_id': user_id}):
+			self._entries_collection.insert_one({'user_id': user_id, 'username': username, 'audio_cnt': 0, 'vote_cnt': 0})
+
 	
 	def add_audio_sample(self, msg):
 		print('MongoClientWrapper: audio sample adding to db...')
@@ -52,15 +63,15 @@ class MongoClientWrapper(object):
 			'vote_idk': 0,
 			'vote_total': 0})
 
-		self._entries_collection_cnt_increment(msg['from']['username'], 'audio')
+		self._entries_collection_cnt_increment(msg['from']['id'], 'audio',
+			self._get_username_from_msg(msg), self._get_fullname_from_msg(msg))
 
 	
-		
-	def add_vote(self, file_id, username, emotion):
+	def add_vote(self, file_id, emotion, msg):
 		print('MongoClientWrapper: adding vote...')
 
 		voted_emotion = 'vote_' + emotion
-		print(emotion)
+
 		self._voice_samples_collection.update_one({'file_id': file_id},
 			{'$inc': {'vote_total': 1, voted_emotion : 1}})
 		print(self._voice_samples_collection.find_one({'file_id': file_id})['vote_total'])
@@ -69,17 +80,28 @@ class MongoClientWrapper(object):
 			row_dict = dict(self._voice_samples_collection.find_one({'file_id': file_id}))
 			row_dict.pop('_id')
 			self._csv_writer_wrapper.write_line(row_dict)
-		self._entries_collection_cnt_increment(username, 'vote')
+		self._entries_collection_cnt_increment(msg['from']['id'], 'vote',
+			self._get_username_from_msg(msg), self._get_fullname_from_msg(msg))
 
+	def _get_username_from_msg(self, msg):
+		return msg['from'].get('username', None)
 
-	def _entries_collection_cnt_increment(self, username, action):
+	def _get_fullname_from_msg(self, msg):
+		return msg['from'].get('first_name', '') + msg['from'].get('last_name', '')
+
+	def _entries_collection_cnt_increment(self, user_id, action, username, full_name):
+		if username:
+			self._update_entries_for_user_id_index(user_id, username)
+		else:
+			username = full_name
+
 		incremented_field = action + '_cnt'
-		if self._entries_collection.find_one({'username': username}):
-			self._entries_collection.update_one({'username': username}, {'$inc': {incremented_field: 1}})
+		if self._entries_collection.find_one({'user_id': user_id}):
+			self._entries_collection.update_one({'user_id': user_id}, {'$inc': {incremented_field: 1}})
 		elif action == 'vote':
-			self._entries_collection.insert_one({'username': username, 'audio_cnt': 0, 'vote_cnt': 1})
+			self._entries_collection.insert_one({'user_id': user_id, 'username': username, 'audio_cnt': 0, 'vote_cnt': 1})
 		elif action == 'audio':
-			self._entries_collection.insert_one({'username': username, 'audio_cnt': 1, 'vote_cnt': 0})
+			self._entries_collection.insert_one({'user_id': user_id, 'username': username, 'audio_cnt': 1, 'vote_cnt': 0})
 
 
 	def choose_id_for_validation(self):
@@ -89,16 +111,30 @@ class MongoClientWrapper(object):
 		else:
 			return choice(ids_for_validation)
 
-	def get_users_entries_leaderboard(self, username, action):
-		field = action + '_cnt'
-		leaders = list(self._entries_collection.find().sort(field, pymongo.DESCENDING).limit(3))
+	def get_users_entries_leaderboard(self, action, msg):
+		user_id = msg['from']['id']
+		username = self._get_username_from_msg(msg)
+		full_name = self._get_fullname_from_msg(msg)
 
-		if not self._entries_collection.find_one({'username': username}):
-			self._entries_collection.insert_one({'username': username, 'audio_cnt': 0, 'vote_cnt': 0})
-		user_score = self._entries_collection.find_one({'username': username})[field]
+		field = action + '_cnt'
+		leaders = list(self._entries_collection.find({}, {'user_id': 0}).sort(field, pymongo.DESCENDING).limit(3))
+
+		if username:
+			self._update_entries_for_user_id_index(user_id, username)
+		else:
+			username = full_name
+
+		if not self._entries_collection.find_one({'user_id': user_id}):
+			self._entries_collection.insert_one({'user_id': user_id, 'username': username, 'audio_cnt': 0, 'vote_cnt': 0})
+
+		user_score = self._entries_collection.find_one({'user_id': user_id})[field]
 
 		user_place = self._entries_collection.find({field : {'$gte': user_score}}).count()
 		return leaders, {field: user_score, 'place': user_place}
+
+	def _update_entries_for_user_id_index(self, user_id, username):
+		if self._entries_collection.find_one({'username': username}) and 'user_id' not in dict(self._entries_collection.find_one({'username': username})).keys():
+			self._entries_collection.update_one({'username': username}, {'$set' :{'user_id': user_id}})
 
 	def get_all_users(self):
 		return self._entries_collection.distinct('username')
@@ -110,3 +146,6 @@ class MongoClientWrapper(object):
 		total_stats['validated audio'] = self._voice_samples_collection.find({'vote_total' : 5}).count()
 		return total_stats
 
+	def get_all_user_ids(self):
+		print(list(self._entries_collection.find({})))
+		return self._entries_collection.distinct('user_id')
