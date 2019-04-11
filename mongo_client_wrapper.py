@@ -10,6 +10,7 @@ class MongoClientWrapper(object):
 	CSV_FIELDS = ['first_name', 'last_name', 'username', 'language_code', 'duration', 'file_id',
 	'vote_calm', 'vote_angry', 'vote_excited', 'vote_surprised', 'vote_disgust', 'vote_fear',
 	'vote_sad', 'vote_spam', 'vote_idk', 'vote_total']
+	REVIEWED_IDS_MAX_LEN = 5
 
 	def __init__(self, mongo_uri):
 		print('MongoClientWrapper: mongo client wrapper initializing...')
@@ -22,13 +23,19 @@ class MongoClientWrapper(object):
 		# when there are enough votes for the sample we store it in csv dataset file
 		self._csv_writer_wrapper = CSVWriterWrapper(self.CSV_FIELDS)
 
+		# we try our best not to send u audio u lately reviewed
+		self._reviewed_ids = []
+
 	def _ids_for_validation(self):
 		print('MongoClientWrapper: id list initializing...')
-		return [x['file_id'] for x in 
+		availible_ids = [x['file_id'] for x in 
 		list(self._voice_samples_collection.find({ 'vote_total': { '$lt': self.MAX_VOTES } }, {'file_id': 1}))]
-
-		for post in self._voice_samples_collection.find({ 'vote_total': { '$lt': self.MAX_VOTES } })['file_id']:
-			self._ids_for_validation.append(post['file_id'])
+		non_reviewed_availible_ids = list(set(availible_ids) - set(self._reviewed_ids))
+		if len(non_reviewed_availible_ids) > 0:
+			return non_reviewed_availible_ids
+		else:
+			self._reviewed_ids = []
+			return availible_ids
 
 	def add_user(self, msg):
 		user_id = msg['from']['id']
@@ -106,10 +113,15 @@ class MongoClientWrapper(object):
 
 	def choose_id_for_validation(self):
 		ids_for_validation = self._ids_for_validation()
-		if not ids_for_validation:
+		print(ids_for_validation)
+		if len(ids_for_validation) == 0:
 			return None
 		else:
-			return choice(ids_for_validation)
+			choosen_id = choice(ids_for_validation)
+			self._reviewed_ids.append(choosen_id)
+			if len(self._reviewed_ids) > self.REVIEWED_IDS_MAX_LEN:
+				self._reviewed_ids = self._reviewed_ids[1:]
+			return choosen_id
 
 	def get_users_entries_leaderboard(self, action, msg):
 		user_id = msg['from']['id']
