@@ -1,4 +1,4 @@
-# Gather Validate Bot
+# Gather Validate Bot for Voice Emotion Recognition dataset gathering
 
 Telegram bot for collecting and validating the data for Voice Emotion Recognition in Russian.
 
